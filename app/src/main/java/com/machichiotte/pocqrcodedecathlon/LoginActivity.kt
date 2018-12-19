@@ -16,16 +16,28 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.support.v4.content.ContextCompat
+import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.widget.Toolbar
+import android.text.Editable
 import android.text.TextUtils
+import android.text.TextWatcher
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.ArrayAdapter
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
+import com.google.zxing.BarcodeFormat
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.BASE_URL
-import com.machichiotte.pocqrcodedecathlon.pojo.Auth
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.PREFS_ID
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.REQUEST_CAMERA_ACCESS
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.REQUEST_READ_CONTACTS
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.SUCCESS
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_BASE_URL
+import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_TOKEN
+import com.machichiotte.pocqrcodedecathlon.pojo.ApiJerem
 import kotlinx.android.synthetic.main.activity_login.*
 import retrofit2.Call
 import retrofit2.Callback
@@ -55,14 +67,109 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
 
         email_sign_in_button.setOnClickListener { attemptLogin() }
 
-        tv_uuid.text = "uuid : " + UUID.randomUUID().toString()
+        tv_uuid.text = "uuid : ${UUID.randomUUID()}"
 
+        prepareToolbar()
 
         checkReadPerm()
     }
 
-    private fun checkReadPerm() {
+    private fun prepareToolbar() {
+        val toolbar: Toolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(toolbar)
+    }
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        val inflater = menuInflater
+        inflater.inflate(R.menu.menu_action_bar_login, menu)
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        // Handle presses on the action bar items
+        when (item.itemId) {
+            R.id.action_settings -> {
+                openSettings()
+                return true
+            }
+            else -> return super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun openSettings() {
+        val dialogBuilder = AlertDialog.Builder(this)
+        val inflater = this.layoutInflater
+        val nullParent: ViewGroup? = null
+        val dialogView = inflater.inflate(R.layout.custom_dialog, nullParent)
+        dialogBuilder.setView(dialogView)
+
+        val sharedPref = this.getSharedPreferences(PREFS_ID, MODE_PRIVATE)
+
+        val edt = dialogView.findViewById(R.id.edit1) as EditText
+        edt.setText(checkBaseUrl())
+
+        dialogBuilder.setTitle(getString(R.string.login_dialog_title))
+        dialogBuilder.setPositiveButton(getString(R.string.accept)) { _, _ ->
+            with(sharedPref.edit()) {
+                if (edt.text.substring(edt.text.length - 1) != "/") {
+                    putString(USER_BASE_URL, edt.text.toString() + "/")
+                } else
+                    putString(USER_BASE_URL, edt.text.toString())
+                apply()
+            }
+            //}
+
+        }
+        dialogBuilder.setNeutralButton(getString(R.string.reset)) { _, _ ->
+            with(sharedPref.edit()) {
+                putString(USER_BASE_URL, BASE_URL)
+                apply()
+            }
+        }
+
+        dialogBuilder.setNegativeButton(getString(R.string.cancel)) { _, _ ->
+            //pass
+        }
+
+        val b = dialogBuilder.create()
+
+        edt.addTextChangedListener(object : TextWatcher {
+            fun handleText() {
+                // Grab the button
+                val okButton: Button = b.getButton(AlertDialog.BUTTON_POSITIVE);
+                okButton.isEnabled =
+                        !(edt.text.isEmpty() || (!edt.text.toString().contains("http://") && !edt.text.toString().contains(
+                            "https://"
+                        )))
+
+                if (okButton.isEnabled) {
+                    b.getButton(AlertDialog.BUTTON_POSITIVE).alpha = 1f
+                    b.getButton(AlertDialog.BUTTON_POSITIVE).isClickable = true
+                } else {
+                    b.getButton(AlertDialog.BUTTON_POSITIVE).alpha = .5f
+                    b.getButton(AlertDialog.BUTTON_POSITIVE).isClickable = false
+                }
+            }
+
+            override fun afterTextChanged(p0: Editable?) {
+                handleText()
+            }
+
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+            }
+
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+            }
+        })
+
+        b.show()
+
+        b.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.colorPrimary))
+        b.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(ContextCompat.getColor(this, R.color.colorPrimary))
+        b.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(ContextCompat.getColor(this, R.color.colorPrimary))
+    }
+
+    private fun checkReadPerm() {
         if (ContextCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.READ_CONTACTS
@@ -109,7 +216,8 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
 
     private fun launchCamera() {
         val i = Intent(this@LoginActivity, SimpleScannerActivity::class.java)
-        i.putExtra("SCAN_FORMATS", "QR_CODE")
+        i.putExtra("SCAN_FORMATS", BarcodeFormat.QR_CODE.toString())
+        i.putExtra("SCAN_FORMATS", BarcodeFormat.CODABAR.toString())
         startActivity(i)
         finish()
     }
@@ -151,10 +259,6 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
             email.error = getString(R.string.error_field_required)
             focusView = email
             cancel = true
-        } else if (!isEmailValid(emailStr)) {
-            email.error = getString(R.string.error_invalid_email)
-            focusView = email
-            cancel = true
         }
 
         if (cancel) {
@@ -173,20 +277,20 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
 
     private fun checkLoginPassword(emailStr: String, passwordStr: String) {
         val retrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(checkBaseUrl())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         val service = retrofit.create(InterfaceApi::class.java)
 
-        val call: Call<Auth> = service.getLoginAuth(emailStr, passwordStr)
+        val call: Call<ApiJerem> = service.getLoginAuth(emailStr, passwordStr)
 
-        call.enqueue(object : Callback<Auth> {
-            override fun onResponse(call: Call<Auth>, response: Response<Auth>) {
-                // generateAuth(response.body().getEmployeeArrayList())
+        call.enqueue(object : Callback<ApiJerem> {
+            override fun onResponse(call: Call<ApiJerem>, response: Response<ApiJerem>) {
 
                 response.body()?.let {
-                    if (it.status == "SUCCESS") {
+                    if (it.status == SUCCESS) {
+                        saveToken(it.token)
                         checkCameraPermission()
                     } else {
                         Toast.makeText(this@LoginActivity, it.error_message, Toast.LENGTH_SHORT).show()
@@ -194,11 +298,21 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
                 }
             }
 
-            override fun onFailure(call: Call<Auth>, t: Throwable) {
+            override fun onFailure(call: Call<ApiJerem>, t: Throwable) {
                 Toast.makeText(this@LoginActivity, "Something went wrong...Please try later!", Toast.LENGTH_SHORT)
                     .show()
             }
         })
+    }
+
+    private fun saveToken(token: String?) {
+        token?.let {
+            val sharedPref = this.getSharedPreferences(PREFS_ID, Context.MODE_PRIVATE) ?: return
+            with(sharedPref.edit()) {
+                putString(USER_TOKEN, it)
+                apply()
+            }
+        }
     }
 
 
@@ -219,11 +333,6 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
         }
     }
 
-    private fun isEmailValid(email: String): Boolean {
-        //return email.contains("@")
-        return true
-    }
-
     private fun isPasswordValid(password: String): Boolean {
         return password.length > 4
     }
@@ -236,34 +345,28 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
         // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
         // for very easy animations. If available, use these APIs to fade-in
         // the progress spinner.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-            val shortAnimTime = resources.getInteger(android.R.integer.config_shortAnimTime).toLong()
+        val shortAnimTime = resources.getInteger(android.R.integer.config_shortAnimTime).toLong()
 
-            login_form.visibility = if (show) View.GONE else View.VISIBLE
-            login_form.animate()
-                .setDuration(shortAnimTime)
-                .alpha((if (show) 0 else 1).toFloat())
-                .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        login_form.visibility = if (show) View.GONE else View.VISIBLE
-                    }
-                })
+        login_form.visibility = if (show) View.GONE else View.VISIBLE
+        login_form.animate()
+            .setDuration(shortAnimTime)
+            .alpha((if (show) 0 else 1).toFloat())
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    login_form.visibility = if (show) View.GONE else View.VISIBLE
+                }
+            })
 
-            login_progress.visibility = if (show) View.VISIBLE else View.GONE
-            login_progress.animate()
-                .setDuration(shortAnimTime)
-                .alpha((if (show) 1 else 0).toFloat())
-                .setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        login_progress.visibility = if (show) View.VISIBLE else View.GONE
-                    }
-                })
-        } else {
-            // The ViewPropertyAnimator APIs are not available, so simply show
-            // and hide the relevant UI components.
-            login_progress.visibility = if (show) View.VISIBLE else View.GONE
-            login_form.visibility = if (show) View.GONE else View.VISIBLE
-        }
+        login_progress.visibility = if (show) View.VISIBLE else View.GONE
+        login_progress.animate()
+            .setDuration(shortAnimTime)
+            .alpha((if (show) 1 else 0).toFloat())
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    login_progress.visibility = if (show) View.VISIBLE else View.GONE
+                }
+            })
+
     }
 
     override fun onCreateLoader(i: Int, bundle: Bundle?): Loader<Cursor> {
@@ -318,7 +421,6 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
             ContactsContract.CommonDataKinds.Email.IS_PRIMARY
         )
         val ADDRESS = 0
-        val IS_PRIMARY = 1
     }
 
     /**
@@ -356,14 +458,14 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
         }
     }
 
-    companion object {
+    private fun checkBaseUrl(): String {
+        var baseUrl = BASE_URL
 
-        /**
-         * Id to identity READ_CONTACTS permission request.
-         */
-        private val REQUEST_READ_CONTACTS = 0
-        private val REQUEST_CAMERA_ACCESS = 5
+        getSharedPreferences(PREFS_ID, MODE_PRIVATE).getString(USER_BASE_URL, null)?.let {
+            baseUrl = it
+        }
 
+        return baseUrl
     }
 
 }

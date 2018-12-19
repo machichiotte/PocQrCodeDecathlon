@@ -3,7 +3,7 @@ package com.machichiotte.pocqrcodedecathlon.pojo
 import android.support.annotation.Nullable
 import com.google.gson.annotations.SerializedName
 
-data class Auth(
+data class ApiJerem(
     @SerializedName("status")
     val status: String,
     @Nullable
@@ -16,5 +16,8 @@ data class Auth(
     val method: String,
     @Nullable
     @SerializedName("success_message")
-    val success_message: String
+    val success_message: String,
+    @Nullable
+    @SerializedName("token")
+    val token: String
 )
