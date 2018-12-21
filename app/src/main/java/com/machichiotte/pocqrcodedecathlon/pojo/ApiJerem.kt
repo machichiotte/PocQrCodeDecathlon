@@ -8,16 +8,28 @@ data class ApiJerem(
     val status: String,
     @Nullable
     @SerializedName("error_num")
-    val error_num: Int,
+    val error_num: Int?,
     @Nullable
     @SerializedName("error_message")
-    val error_message: String,
+    val error_message: String?,
     @SerializedName("method")
-    val method: String,
+    val method: String?,
     @Nullable
     @SerializedName("success_message")
-    val success_message: String,
+    val success_message: String?,
     @Nullable
     @SerializedName("token")
-    val token: String
+    val token: String?,
+    @Nullable
+    @SerializedName("quantity")
+    val quantity: Int?,
+    @Nullable
+    @SerializedName("number_zone")
+    val number_zone: Int?,
+    @Nullable
+    @SerializedName("description_zone")
+    val description_zone: String?,
+    @Nullable
+    @SerializedName("type")
+    val type: String?
 )

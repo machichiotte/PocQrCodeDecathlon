@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PocQrCodeDecathlon</string>
+    <string name="app_name">Easylog</string>
     <string name="scan_title">Scan your QrCode</string>
     <!-- Strings related to login -->
     <string name="prompt_email">Email</string>

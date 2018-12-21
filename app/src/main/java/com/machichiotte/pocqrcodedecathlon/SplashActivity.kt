@@ -11,7 +11,6 @@ import android.os.Handler
 import android.support.v4.app.ActivityCompat
 import android.support.v7.app.AppCompatActivity
 import android.telephony.TelephonyManager
-import android.util.Log
 import android.widget.Toast
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.BASE_URL
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.PREFS_ID
@@ -21,6 +20,7 @@ import com.machichiotte.pocqrcodedecathlon.Constants.Constants.SUCCESS
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_BASE_URL
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_TOKEN
 import com.machichiotte.pocqrcodedecathlon.pojo.ApiJerem
+import kotlinx.android.synthetic.main.activity_splash.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -65,14 +65,12 @@ class SplashActivity : AppCompatActivity() {
         } else {
             deviceId = (context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager).deviceId
 
-            if (null == deviceId || deviceId == "")
+            if (deviceId == "")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     deviceId = Build.getSerial()
                 } else {
                     deviceId = Build.SERIAL
                 }
-
-            Log.e("sdpfhiqbousfd", "fqhsnd")
 
             checkMacAddress()
         }
@@ -89,41 +87,46 @@ class SplashActivity : AppCompatActivity() {
 
 
     private fun checkMacAddress() {
-        val uniqueID = deviceId
+        if (checkConnectivity()) {
+            val uniqueID = deviceId
 
-        val retrofit = Retrofit.Builder()
-            .baseUrl(checkBaseUrl())
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
+            val retrofit = Retrofit.Builder()
+                .baseUrl(checkBaseUrl())
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
 
-        val service = retrofit.create(InterfaceApi::class.java)
+            val service = retrofit.create(InterfaceApi::class.java)
 
-        val call: Call<ApiJerem> = service.getUniqueIdAuth(uniqueID)
+            val call: Call<ApiJerem> = service.getUniqueIdAuth(uniqueID)
 
-        call.enqueue(object : Callback<ApiJerem> {
-            override fun onResponse(call: Call<ApiJerem>, response: Response<ApiJerem>) {
-                // generateAuth(response.body().getEmployeeArrayList())
-                Handler().postDelayed({
-                    response.body()?.let {
-                        if (it.status == SUCCESS) {
+            call.enqueue(object : Callback<ApiJerem> {
+                override fun onResponse(call: Call<ApiJerem>, response: Response<ApiJerem>) {
+                    // generateAuth(response.body().getEmployeeArrayList())
+                    Handler().postDelayed({
+                        response.body()?.let {
+                            if (it.status == SUCCESS) {
 
-                            saveToken(it.token)
+                                saveToken(it.token)
 
-                            val i = Intent(this@SplashActivity, SimpleScannerActivity::class.java)
-                            startActivityForResult(i, REQUEST_CODE_QR_SCAN)
-                            finish()
-                        } else {
-                            goToLogin()
+                                val i = Intent(this@SplashActivity, SimpleScannerActivity::class.java)
+                                startActivityForResult(i, REQUEST_CODE_QR_SCAN)
+                                finish()
+                            } else {
+                                goToLogin()
+                            }
                         }
-                    }
-                }, 1500)
-            }
+                    }, 1500)
+                }
 
-            override fun onFailure(call: Call<ApiJerem>, t: Throwable) {
-                Toast.makeText(this@SplashActivity, "Something went wrong...Please try later!", Toast.LENGTH_SHORT)
-                    .show()
-            }
-        })
+                override fun onFailure(call: Call<ApiJerem>, t: Throwable) {
+                    Toast.makeText(this@SplashActivity, "Something went wrong...Please try later!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+            })
+
+        } else {
+            Utils.showSnackBar("ERROR:NO CONNECTIVITY", false, activity_splash_layout)
+        }
     }
 
     private fun saveToken(token: String?) {
@@ -150,5 +153,10 @@ class SplashActivity : AppCompatActivity() {
         val i = Intent(this@SplashActivity, LoginActivity::class.java)
         startActivity(i)
         finish()
+    }
+
+
+    private fun checkConnectivity(): Boolean {
+        return Utils.isInternetconnected(this)
     }
 }

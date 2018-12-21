@@ -1,13 +1,14 @@
 package com.machichiotte.pocqrcodedecathlon
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
 import android.support.design.widget.FloatingActionButton
-import android.support.design.widget.Snackbar
-import android.support.v4.content.ContextCompat
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.Toolbar
@@ -25,6 +26,7 @@ import com.machichiotte.pocqrcodedecathlon.Constants.Constants.PREFS_ID
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.SUCCESS
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_BASE_URL
 import com.machichiotte.pocqrcodedecathlon.Constants.Constants.USER_TOKEN
+import com.machichiotte.pocqrcodedecathlon.NetworkChangeReceiver.NETWORK_SWITCH_FILTER
 import com.machichiotte.pocqrcodedecathlon.pojo.ApiJerem
 import kotlinx.android.synthetic.main.activity_scan.*
 import me.dm7.barcodescanner.zxing.ZXingScannerView
@@ -41,6 +43,8 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
     private lateinit var toolbar: Toolbar
     private lateinit var token: String
     private var timing: Long = BASE_TIMER.toLong()
+    private var successMsg: String? = null
+    private val listId = arrayOf<Int>()
 
     public override fun onCreate(state: Bundle?) {
         super.onCreate(state)
@@ -51,13 +55,13 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
         mScannerView = findViewById(R.id.scanner)
         toolbar = findViewById(R.id.toolbar)
 
-        prepareToolbar(-1)
+        prepareToolbar(-1, null)
     }
 
-    private fun prepareToolbar(zone: Int) {
+    private fun prepareToolbar(zone: Int, description: String?) {
         if (zone > 0) {
             toolbar.title = "Zone $zone"
-            toolbar.subtitle = "Description de la zone"
+            toolbar.subtitle = description
         } else {
             toolbar.title = "Zone inconnue"
             toolbar.subtitle = "Veuillez scanner une zone"
@@ -102,12 +106,12 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         // Handle presses on the action bar items
-        when (item.itemId) {
+        return when (item.itemId) {
             R.id.action_timer -> {
                 openTimerSetting()
-                return true
+                true
             }
-            else -> return super.onOptionsItemSelected(item)
+            else -> super.onOptionsItemSelected(item)
         }
     }
 
@@ -141,11 +145,11 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
 
 
         dialogBuilder.setTitle(getString(R.string.modify_scan_timing_title))
-        dialogBuilder.setPositiveButton(getString(R.string.validate)) { dialog, whichButton ->
+        dialogBuilder.setPositiveButton(getString(R.string.validate)) { _, _ ->
             timing = tvTiming.text.toString().toLong()
 
         }
-        dialogBuilder.setNegativeButton(getString(R.string.cancel)) { dialog, whichButton ->
+        dialogBuilder.setNegativeButton(getString(R.string.cancel)) { _, _ ->
 
         }
         val b = dialogBuilder.create()
@@ -153,13 +157,41 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
 
     }
 
+    private var netSwitchReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val isConnectionAvailable = intent.extras.getBoolean("is_connected")
+
+            if (isConnectionAvailable) {
+                Utils.showSnackBar("SUCCESS: CONNECTIVITY", true, activity_scan_layout)
+                Toast.makeText(
+                    this@SimpleScannerActivity,
+                    "Yep",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Utils.showSnackBar("ERROR:NO CONNECTIVITY", false, activity_scan_layout)
+                Toast.makeText(
+                    this@SimpleScannerActivity,
+                    "NOPE!",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     public override fun onPause() {
         super.onPause()
+
+        unregisterReceiver(netSwitchReceiver)
+
         mScannerView!!.stopCamera()
     }
 
     public override fun onResume() {
         super.onResume()
+
+        registerReceiver(netSwitchReceiver, IntentFilter(NETWORK_SWITCH_FILTER))
+
         prepareScanner()
     }
 
@@ -186,7 +218,19 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
                         if (it.status == SUCCESS) {
                             restartCamera()
                             playNotif(true)
-                            showSnackBar("SUCCESS:$qrCode", true)
+                            Utils.showSnackBar("SUCCESS:$qrCode", true, activity_scan_layout)
+
+                            if (null != it.number_zone) {
+                                prepareToolbar(it.number_zone, it.description_zone)
+                            }
+
+                            if (it.success_message != null && (successMsg == null || successMsg != it.success_message))
+                                if (null != it.quantity && it.quantity > 1) {
+                                    successMsg = it.success_message
+
+                                    showDialogColis(it.quantity)
+                                }
+
                         } else {
                             when (it.error_message) {
                                 ERROR_EXPIRED_TOKEN -> {
@@ -197,7 +241,7 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
                                 else -> {
                                     restartCamera()
                                     playNotif(false)
-                                    showSnackBar("ERROR:$it.error_messagee", false)
+                                    Utils.showSnackBar("ERROR:" + it.error_message, false, activity_scan_layout)
                                 }
 
                             }
@@ -217,41 +261,27 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
         }
     }
 
-    private fun showSnackBar(content: String, isSuccess: Boolean) {
-
-
-        val snackBar = Snackbar.make(
-            activity_scan_layout, // Parent view
-            content, // Message to show
-            Snackbar.LENGTH_LONG // How long to display the message.
-        )
-
-        // change snackbar text color
-        val snackbarTextId = android.support.design.R.id.snackbar_text
-        val textView = snackBar.view.findViewById(snackbarTextId) as TextView
-
-        if (isSuccess)
-            textView.setTextColor(
-                ContextCompat.getColor(this, android.R.color.holo_green_light)
-            )
-        else
-            textView.setTextColor(
-                ContextCompat.getColor(this, android.R.color.holo_red_light)
-            )
-
-        snackBar.show()
+    private fun showDialogColis(nbColis: Int) {
+        AlertDialog.Builder(this)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .setTitle("Vous avez un lot de $nbColis colis")
+            .setMessage("Rescannez le QRcode pour confirmer cette valeur")
+            .setPositiveButton("Fermer") { dialog, _ ->
+                dialog.cancel()
+            }
+            .show()
     }
+
 
     private fun restartCamera() {
         Handler().postDelayed({ mScannerView!!.resumeCameraPreview(this) }, timing)
     }
 
     private fun playNotif(isSuccess: Boolean) = try {
-        val mPlayer: MediaPlayer
-        if (isSuccess)
-            mPlayer = MediaPlayer.create(this@SimpleScannerActivity, R.raw.plucky)
+        val mPlayer: MediaPlayer = if (isSuccess)
+            MediaPlayer.create(this@SimpleScannerActivity, R.raw.plucky)
         else
-            mPlayer = MediaPlayer.create(this@SimpleScannerActivity, R.raw.error)
+            MediaPlayer.create(this@SimpleScannerActivity, R.raw.error)
 
         mPlayer.start()
 
