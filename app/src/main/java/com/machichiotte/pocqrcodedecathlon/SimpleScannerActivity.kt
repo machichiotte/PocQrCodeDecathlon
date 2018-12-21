@@ -44,11 +44,13 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
     private lateinit var token: String
     private var timing: Long = BASE_TIMER.toLong()
     private var successMsg: String? = null
-    private val listId = arrayOf<Int>()
+    private lateinit var listId: ArrayList<String>
 
     public override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         setContentView(R.layout.activity_scan)
+
+        listId = ArrayList()
 
         token = getSharedPreferences(PREFS_ID, MODE_PRIVATE).getString(USER_TOKEN, "")
 
@@ -60,11 +62,11 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
 
     private fun prepareToolbar(zone: Int, description: String?) {
         if (zone > 0) {
-            toolbar.title = "Zone $zone"
+            toolbar.title = getString(R.string.zone_space) + zone
             toolbar.subtitle = description
         } else {
-            toolbar.title = "Zone inconnue"
-            toolbar.subtitle = "Veuillez scanner une zone"
+            toolbar.title = getString(R.string.unknown_zone)
+            toolbar.subtitle = getString(R.string.unknown_zone_subtitle)
         }
 
         setSupportActionBar(toolbar)
@@ -133,16 +135,11 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
                 tvTiming.text = (progress).toString()
             }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-
-            }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
 
         })
-
 
         dialogBuilder.setTitle(getString(R.string.modify_scan_timing_title))
         dialogBuilder.setPositiveButton(getString(R.string.validate)) { _, _ ->
@@ -162,6 +159,14 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
             val isConnectionAvailable = intent.extras.getBoolean("is_connected")
 
             if (isConnectionAvailable) {
+
+                if (listId.size > 0) {
+                    for (id: String in listId) {
+                        sendQrCode(id)
+                        listId.remove(id)
+                    }
+                }
+
                 Utils.showSnackBar("SUCCESS: CONNECTIVITY", true, activity_scan_layout)
                 Toast.makeText(
                     this@SimpleScannerActivity,
@@ -251,9 +256,11 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
                 }
 
                 override fun onFailure(call: Call<ApiJerem>, t: Throwable) {
+                    listId.add(qrCode)
+
                     Toast.makeText(
                         this@SimpleScannerActivity,
-                        "Something went wrong...Please try later!",
+                        "Problème de connexion, votre QrCode sera renvoyé plus tard !",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -264,9 +271,9 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
     private fun showDialogColis(nbColis: Int) {
         AlertDialog.Builder(this)
             .setIcon(android.R.drawable.ic_dialog_alert)
-            .setTitle("Vous avez un lot de $nbColis colis")
-            .setMessage("Rescannez le QRcode pour confirmer cette valeur")
-            .setPositiveButton("Fermer") { dialog, _ ->
+            .setTitle(getString(R.string.colis_dialog_title, nbColis))
+            .setMessage(getString(R.string.scan_again_for_confirmation))
+            .setPositiveButton(getString(R.string.close)) { dialog, _ ->
                 dialog.cancel()
             }
             .show()

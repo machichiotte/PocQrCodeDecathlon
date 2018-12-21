@@ -23,4 +23,10 @@
     <string name="accept">Valider</string>
     <string name="login_dialog_title">Modifier l\'url des QRcodes</string>
     <string name="reset">Reset ?</string>
+    <string name="unknown_zone">Zone inconnue</string>
+    <string name="zone_space">Zone</string>
+    <string name="unknown_zone_subtitle">Veuillez scanner une zone</string>
+    <string name="scan_again_for_confirmation">Rescannez le QRcode pour confirmer cette valeur</string>
+    <string name="close">Fermer</string>
+    <string name="colis_dialog_title">Vous avez un lot de %d colis</string>
 </resources>

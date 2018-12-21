@@ -28,7 +28,6 @@
             android:layout_marginBottom="16dp"
             android:id="@+id/fab_flash"
             app:backgroundTint="@color/colorPrimary"
-            android:tint="@android:color/white"
             android:visibility="gone"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
