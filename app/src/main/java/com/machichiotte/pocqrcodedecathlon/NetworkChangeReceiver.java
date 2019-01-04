@@ -16,7 +16,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
         if (intent.getAction().equalsIgnoreCase("android.net.conn.CONNECTIVITY_CHANGE")) {
 
             NetworkInfo networkInfo =
-                    (NetworkInfo) intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO);
+                    intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO);
             if (networkInfo.isConnected()) {
                 Intent intnt = new Intent(NETWORK_SWITCH_FILTER);
                 intnt.putExtra("is_connected", true);

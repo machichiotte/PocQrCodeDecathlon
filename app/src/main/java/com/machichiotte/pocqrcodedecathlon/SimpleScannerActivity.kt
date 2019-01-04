@@ -186,17 +186,13 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
 
     public override fun onPause() {
         super.onPause()
-
         unregisterReceiver(netSwitchReceiver)
-
         mScannerView!!.stopCamera()
     }
 
     public override fun onResume() {
         super.onResume()
-
         registerReceiver(netSwitchReceiver, IntentFilter(NETWORK_SWITCH_FILTER))
-
         prepareScanner()
     }
 
@@ -206,7 +202,6 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
     }
 
     private fun sendQrCode(qrCode: String) {
-
         token.let {
             val retrofit = Retrofit.Builder()
                 .baseUrl(checkBaseUrl())
@@ -232,7 +227,7 @@ class SimpleScannerActivity : AppCompatActivity(), ZXingScannerView.ResultHandle
                             if (it.success_message != null && (successMsg == null || successMsg != it.success_message))
                                 if (null != it.quantity && it.quantity > 1) {
                                     successMsg = it.success_message
-
+//add module
                                     showDialogColis(it.quantity)
                                 }
 

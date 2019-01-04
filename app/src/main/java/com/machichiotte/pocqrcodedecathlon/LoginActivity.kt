@@ -76,7 +76,9 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
 
     private fun prepareToolbar() {
         val toolbar: Toolbar = findViewById(R.id.toolbar)
+        toolbar.setLogo(R.drawable.ic_launcher_foreground)
         setSupportActionBar(toolbar)
+
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -136,7 +138,7 @@ class LoginActivity : AppCompatActivity(), LoaderCallbacks<Cursor> {
         edt.addTextChangedListener(object : TextWatcher {
             fun handleText() {
                 // Grab the button
-                val okButton: Button = b.getButton(AlertDialog.BUTTON_POSITIVE);
+                val okButton: Button = b.getButton(AlertDialog.BUTTON_POSITIVE)
                 okButton.isEnabled =
                         !(edt.text.isEmpty() || (!edt.text.toString().contains("http://") && !edt.text.toString().contains(
                             "https://"

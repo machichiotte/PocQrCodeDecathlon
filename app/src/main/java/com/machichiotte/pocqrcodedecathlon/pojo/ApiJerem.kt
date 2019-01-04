@@ -31,5 +31,11 @@ data class ApiJerem(
     val description_zone: String?,
     @Nullable
     @SerializedName("type")
-    val type: String?
+    val type: String?,
+    @Nullable
+    @SerializedName("option1")
+    val option1: Boolean?,
+    @Nullable
+    @SerializedName("option2")
+    val option2: Boolean?
 )
